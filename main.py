@@ -46,33 +46,34 @@ def create_chatkit_session(req: SessionRequest):
 
 @app.get("/api/chatkit/config")
 def get_chatkit_config():
-    load_dotenv(override=True)
     return {
-        "placeholder": os.getenv("CHATKIT_PLACEHOLDER", "궁금한 것이 있으면 여기에 메시지를 입력하세요."),
+        "placeholder": os.getenv("CHATKIT_PLACEHOLDER", "궁금한 것이 있으면 여기에 메시지를 입력하세요..."),
         "greeting": os.getenv("CHATKIT_GREETING", "안녕하세요! 무엇을 도와드릴까요?")
     }
 
 # 정적 파일 제공: build 폴더 안의 정적 React 파일들 제공
-app.mount("/", StaticFiles(directory="frontend/build", html=True), name="client")
+app.mount("/", StaticFiles(directory="build", html=True), name="client")
 
 # React 라우팅 대응: 비-API 경로 요청일 경우 index.html 반환
 @app.get("/{full_path:path}", response_class=HTMLResponse)
 async def serve_spa(request: Request, full_path: str):
-    index_path = os.path.join("frontend/build", "index.html")
+    index_path = os.path.join("build", "index.html")
     with open(index_path, "r", encoding="utf-8") as f:
         html = f.read()
     return HTMLResponse(html)
 
 
 if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8000))
     import uvicorn
+    
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=int(os.getenv("PORT", 8000)),
+        port=port,
         reload=True,
-        # timeout_keep_alive=0,  # timeout 무제한
-        # timeout_graceful_shutdown=0,
-        # access_log=True,
-        # log_level="info"
+        timeout_keep_alive=0,  # timeout 무제한
+        timeout_graceful_shutdown=0,
+        access_log=True,
+        log_level="info"
     )

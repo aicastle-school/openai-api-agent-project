@@ -1,25 +1,11 @@
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse, Response
-from fastapi.templating import Jinja2Templates
+from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
-import os, json
+from pydantic import BaseModel
 from openai import OpenAI
-import uvicorn
-import httpx
+import os
 from dotenv import load_dotenv
-from mcp_server import mcp
-
-# app 생성
-mcp_app = mcp.http_app(path="/")
-app = FastAPI(lifespan=mcp_app.lifespan)
-app.mount("/mcp", mcp_app)
-# app = FastAPI()
-
-# app 설정
-app.add_middleware(CORSMiddleware, allow_origins=["*"]) # CORS - 모든 출처 허용
-app.mount("/static", StaticFiles(directory="assets/static"), name="static") # Static 파일 서빙 설정
-templates = Jinja2Templates(directory="assets/templates") # 템플릿 설정
 
 # openai client 생성 함수
 client = None
@@ -28,199 +14,65 @@ def get_openai_client():
     global client, OPENAI_API_KEY
     load_dotenv(override=True)
     current_api_key = os.environ.get("OPENAI_API_KEY")
-    
-    # API 키가 변경되었거나 처음 실행인 경우
+
     if OPENAI_API_KEY != current_api_key:
         OPENAI_API_KEY = current_api_key
-        if OPENAI_API_KEY:
-            client = OpenAI()
-        else:
-            client = None
+        client = OpenAI() if OPENAI_API_KEY else None
     return client
 
-# API 파라미터 생성 함수
-def get_api_params():
+# workflow id
+def get_workflow_id():
     load_dotenv(override=True)
+    return os.getenv("WORKFLOW_ID")
 
-    if PROMPT_ID := os.environ.get("PROMPT_ID"):
-        api_params = {"prompt": {"id": PROMPT_ID}}
-    else:
-        api_params = {"model": "gpt-5"}
 
-    # code.json : tools 및 prompt variables 업데이트
-    for path in ['code.json', '/etc/secrets/code.json']:
-        if os.path.exists(path):
-            try:
-                with open(path, 'r', encoding='utf-8') as file:
-                    code_data = json.load(file)
-                # tools 업데이트
-                if code_data.get("tools"):
-                    api_params["tools"] = code_data["tools"]
-                # prompt variables 업데이트
-                if PROMPT_ID and code_data.get("prompt", {}).get("variables"):
-                    api_params['prompt']["variables"] = code_data["prompt"]["variables"]
-                break
-            except Exception as e:
-                continue
-    return api_params
+client = get_openai_client()
+app = FastAPI()
 
-# TITLE 가져오는 함수
-def get_title():
+# CORS - 모든 출처 허용
+app.add_middleware(CORSMiddleware, allow_origins=["*"])
+
+class SessionRequest(BaseModel):
+    device_id: str
+
+@app.post("/api/chatkit/session")
+def create_chatkit_session(req: SessionRequest):
+    client = get_openai_client()
+    session = client.beta.chatkit.sessions.create(
+        workflow={"id": get_workflow_id()},
+        user=req.device_id,
+    )
+    return {"client_secret": session.client_secret}
+
+@app.get("/api/chatkit/config")
+def get_chatkit_config():
     load_dotenv(override=True)
-    return os.environ.get("TITLE", "OpenAI API Agent School").strip()
+    return {
+        "placeholder": os.getenv("CHATKIT_PLACEHOLDER", "궁금한 것이 있으면 여기에 메시지를 입력하세요."),
+        "greeting": os.getenv("CHATKIT_GREETING", "안녕하세요! 무엇을 도와드릴까요?")
+    }
 
-# 메인 페이지 (Agent 앱)
-@app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
-    return templates.TemplateResponse(request, "index.html", {
-        "title": get_title()
-    })
+# 정적 파일 제공: build 폴더 안의 정적 React 파일들 제공
+app.mount("/", StaticFiles(directory="frontend/build", html=True), name="client")
 
-# 채팅 API
-@app.post("/api")
-async def chat_api(request: Request):
-    client = get_openai_client()
-    if client is None:
-        raise HTTPException(status_code=500, detail="OpenAI API key is not configured. Please set OPENAI_API_KEY environment variable.")
-    
-    data = await request.json()
-    input_message = data.get("input_message", [])
-    previous_response_id = data.get("previous_response_id")
+# React 라우팅 대응: 비-API 경로 요청일 경우 index.html 반환
+@app.get("/{full_path:path}", response_class=HTMLResponse)
+async def serve_spa(request: Request, full_path: str):
+    index_path = os.path.join("frontend/build", "index.html")
+    with open(index_path, "r", encoding="utf-8") as f:
+        html = f.read()
+    return HTMLResponse(html)
 
-    async def generate():
-        nonlocal previous_response_id
-        try:
-            api_params = get_api_params()
-            response = client.responses.create(
-                **api_params,
-                input=input_message,
-                previous_response_id=previous_response_id,
-                stream=True
-            )
-
-            max_repeats = 5
-            for _ in range(max_repeats):
-                follow_up_input = []
-                annotations = []
-                try:
-                    for event in response:
-                        print(f"Processing event type: {event.type}")
-                        yield f"data: {json.dumps({'type': 'status', 'status': event.type})}\n\n"
-                        
-                        if event.type == "response.output_text.delta":
-                            yield f"data: {json.dumps({'type': 'text_delta', 'delta': event.delta})}\n\n"
-
-                        elif event.type == "response.completed":
-                            previous_response_id = event.response.id
-
-                        elif event.type == "response.image_generation_call.partial_image":
-                            image_data_url = f"data:image/{event.output_format};base64,{event.partial_image_b64}"
-                            yield f"data: {json.dumps({'type': 'image_generated', 'image_data': image_data_url, 'is_partial': True})}\n\n"
-
-                        elif event.type == "response.output_item.done":
-                            if event.item.type == "function_call":
-                                try:
-                                    import tools
-                                    func = getattr(tools, event.item.name)
-                                    args = json.loads(event.item.arguments)
-                                    func_output = str(func(**args))
-                                except Exception as e:
-                                    func_output = str(e)
-                                finally:
-                                    follow_up_input.append({
-                                        "type": "function_call_output", 
-                                        "call_id": event.item.call_id, 
-                                        "output": func_output
-                                    })
-                            elif event.item.type == "mcp_approval_request":
-                                    follow_up_input.append({
-                                        "type": "mcp_approval_response",
-                                        "approval_request_id": event.item.id,
-                                        "approve": True
-                                    })
-                            elif event.item.type == "message":
-                                for content in event.item.content:
-                                    content_dict = content.model_dump()
-                                    annotations += content_dict.get('annotations', [])
-                except Exception as stream_error:
-                    print(f"Error in stream processing: {stream_error}")
-                    yield f"data: {json.dumps({'type': 'error', 'message': f'Stream error: {str(stream_error)}'})}\n\n"
-                    break  # 스트림 에러가 발생하면 루프 중단
-
-                            
-                # 함수 호출 결과가 있으면 다시 API 호출
-                if follow_up_input:
-                    print(f"Making follow-up API call with {len(follow_up_input)}")
-                    api_params = get_api_params()
-                    response = client.responses.create(
-                        **api_params,
-                        input=follow_up_input,
-                        previous_response_id=previous_response_id,
-                        stream=True
-                    )
-                else:
-                    break
-
-            yield f"data: {json.dumps({'type': 'done', 'response_id': previous_response_id, 'annotations': annotations})}\n\n"
-            print("Stream completed successfully")
-
-        except Exception as e:
-            print(f"Error in chat API: {str(e)}")
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
-
-    return StreamingResponse(generate(), media_type="text/plain")
-
-# 파일 프록시 엔드포인트 - sandbox 파일을 다운로드할 수 있게 해줌
-@app.get("/files/{container_id}/{file_id}")
-async def proxy_sandbox_file(container_id: str, file_id: str, filename: str = None):
-    client = get_openai_client()
-    if not client:
-        raise HTTPException(status_code=500, detail="OpenAI API key is not configured")
-    
-    try:
-        # OpenAI Container Files API 호출
-        url = f"https://api.openai.com/v1/containers/{container_id}/files/{file_id}/content"
-        headers = {"Authorization": f"Bearer {os.getenv('OPENAI_API_KEY')}"}
-        
-        async with httpx.AsyncClient() as client_http:
-            response = await client_http.get(url, headers=headers)
-            response.raise_for_status()
-            
-            # 파일명 결정: 파라미터로 받은 filename이 있으면 사용, 없으면 file_id 사용
-            download_filename = filename if filename else file_id
-            
-            # 파일 내용과 헤더를 클라이언트에게 전달
-            content_type = response.headers.get("content-type", "application/octet-stream")
-            return Response(
-                content=response.content, 
-                media_type=content_type,
-                headers={
-                    "Content-Disposition": f"attachment; filename={download_filename}",
-                    "Cache-Control": "public, max-age=3600"
-                }
-            )
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code, detail=f"Failed to fetch file: {e}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error proxying file: {str(e)}")
-
-##################################################################
-####################### Server Startup ##########################
-##################################################################
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8000))
-    print(f"🚀 Starting unified server on port {port}")
-    print(f"🤖 Agent App: http://localhost:{port}/")
-    print(f"🔧 MCP Server: http://localhost:{port}/mcp")
-    
+    import uvicorn
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=port,
+        port=int(os.getenv("PORT", 8000)),
         reload=True,
-        timeout_keep_alive=0,  # timeout 무제한
-        timeout_graceful_shutdown=0,
-        access_log=True,
-        log_level="info"
+        # timeout_keep_alive=0,  # timeout 무제한
+        # timeout_graceful_shutdown=0,
+        # access_log=True,
+        # log_level="info"
     )

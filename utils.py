@@ -32,5 +32,4 @@ def get_workflow_id():
     return os.getenv("WORKFLOW_ID")
 
 def get_title():
-    config = get_config()
-    return config.get("startScreen", {}).get("greeting", "OpenAI Agent School")
+    return  get_config().get("startScreen", {}).get("greeting", "OpenAI Agent School")

@@ -1,76 +1,49 @@
-from fastapi import FastAPI, Request, UploadFile, File
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from openai import OpenAI
+from fastapi.templating import Jinja2Templates
 import os
-from dotenv import load_dotenv
+import uuid
+from utils import get_openai_client, get_workflow_id, get_config, get_title
 
-# openai client 생성 함수
-client = None
-OPENAI_API_KEY = None
-def get_openai_client():
-    global client, OPENAI_API_KEY
-    load_dotenv(override=True)
-    current_api_key = os.environ.get("OPENAI_API_KEY")
-
-    if OPENAI_API_KEY != current_api_key:
-        OPENAI_API_KEY = current_api_key
-        client = OpenAI() if OPENAI_API_KEY else None
-    return client
-
-# workflow id
-def get_workflow_id():
-    load_dotenv(override=True)
-    return os.getenv("WORKFLOW_ID")
-
-
+# openai client
 client = get_openai_client()
-app = FastAPI()
 
-# CORS - 모든 출처 허용
+# app 생성
+app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"])
 
-class SessionRequest(BaseModel):
-    device_id: str
+# Jinja2 템플릿 설정
+templates = Jinja2Templates(directory="build")
 
 @app.post("/api/chatkit/session")
-def create_chatkit_session(req: SessionRequest):
+def create_chatkit_session():
     client = get_openai_client()
     session = client.beta.chatkit.sessions.create(
         workflow={"id": get_workflow_id()},
-        user=req.device_id,
+        user=f"user_{str(uuid.uuid4())[:8]}",
     )
     return {"client_secret": session.client_secret}
 
-@app.get("/api/chatkit/config")
-def get_chatkit_config():
-    return {
-        "placeholder": os.getenv("CHATKIT_PLACEHOLDER", "궁금한 것이 있으면 여기에 메시지를 입력하세요..."),
-        "greeting": os.getenv("CHATKIT_GREETING", "안녕하세요! 무엇을 도와드릴까요?")
-    }
+@app.get("/", response_class=HTMLResponse)
+async def serve_index(request: Request):
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "title": get_title(),
+        "config": get_config()
+    })
 
-# 정적 파일 제공: build 폴더 안의 정적 React 파일들 제공
-app.mount("/", StaticFiles(directory="build", html=True), name="client")
-
-# React 라우팅 대응: 비-API 경로 요청일 경우 index.html 반환
-@app.get("/{full_path:path}", response_class=HTMLResponse)
-async def serve_spa(request: Request, full_path: str):
-    index_path = os.path.join("build", "index.html")
-    with open(index_path, "r", encoding="utf-8") as f:
-        html = f.read()
-    return HTMLResponse(html)
+app.mount("/static", StaticFiles(directory="build/static"), name="static")
+app.mount("/", StaticFiles(directory="build", html=False), name="client")
 
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8000))
     import uvicorn
-    
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=port,
+        port=int(os.getenv("PORT", 8000)),
         reload=True,
         timeout_keep_alive=0,  # timeout 무제한
         timeout_graceful_shutdown=0,

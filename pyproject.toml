@@ -7,4 +7,6 @@ dependencies = [
     "openai",
     "pydantic",
     "python-dotenv",
+    "uvicorn",
+    "pyyaml",
 ]

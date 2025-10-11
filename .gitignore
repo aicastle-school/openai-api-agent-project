@@ -2,9 +2,10 @@
 __pycache__/
 node_modules/
 
+code.json
 .env
 
 test*
-
-
-
+fine_tuning/dpo/output/
+fine_tuning/rft/output/
+fine_tuning/sft/output/

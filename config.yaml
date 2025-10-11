@@ -1,0 +1,9 @@
+# [chatkit themes] https://platform.openai.com/docs/guides/chatkit-themes
+
+startScreen:
+  greeting: "(주) 에이아이캐슬의 고객 지원 에이전트입니다."
+  prompts:
+    - label: "에이아이캐슬에 대해 알아보기"
+      prompt: "(주) 에이아이캐슬은 어떤 기업인가요?"
+    - label: "에이아이캐슬의 교육 프로그램"
+      prompt: "(주) 에이아이캐슬은 어떤 교육 프로그램을 제공하나요?"

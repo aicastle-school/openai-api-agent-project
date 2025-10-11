@@ -67,7 +67,7 @@ function App() {
       <div className="copyright">
         <strong><a href="https://openai-agent.aicastle.school" target="_blank" rel="noopener noreferrer">OpenAI Agent School</a></strong>
         {' | Copyright © '}
-        <a href="https://aicastle.com" target="_blank" rel="noopener noreferrer">AICASTLE</a>
+        <a href="https://aicastle.com" target="_blank" rel="noopener noreferrer">(주) 에이아이캐슬</a>
       </div>
     </div>
   );

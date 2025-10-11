@@ -3,15 +3,22 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
-import os
-import uuid
+from fastmcp import FastMCP
+import os, inspect, uuid
 from utils import get_openai_client, get_workflow_id, get_config, get_title
 
 # openai client
 client = get_openai_client()
 
+# mcp 생성
+mcp = FastMCP("MCP Server")
+import functions
+for name, fn in inspect.getmembers(functions, inspect.isfunction):
+    mcp.tool(fn)
+
 # app 생성
-app = FastAPI()
+app = FastAPI(lifespan=mcp.lifespan)
+app.mount("/mcp", mcp.http_app(path="/"))
 app.add_middleware(CORSMiddleware, allow_origins=["*"])
 
 # Jinja2 템플릿 설정

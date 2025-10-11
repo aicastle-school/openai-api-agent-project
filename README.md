@@ -26,9 +26,22 @@
 
 ## 코드스페이스에서 실행
 
-```sh
-npm run build && uv run main.py
-```
+### Frontend
+- update
+    ```sh
+    npm update
+    ```
+
+- build
+    ```sh
+    npm run build
+    ```
+
+### Backend
+- run
+    ```sh
+    uv run main.py
+    ```
 
 ## References
 - OpenAI Docs

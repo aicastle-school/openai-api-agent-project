@@ -1,8 +1,8 @@
 # chatkit
 
-## Render로 실행
+## Render에서 배포
 
-### Config
+### Config 설정
 
 - Language: `Python 3`
 - Branch: `multi-agent`
@@ -20,44 +20,15 @@
     - `OPENAI_API_KEY`: OpenAI API Key
     - `WORKFLOW_ID`: Workflow ID (Agent Builder에서 생성된 ID)
 
-## 로컬에서 실행
+### Domain allowlist 설정
+- render에서 URL 복사 후 **OpenAI Platform**에서 도메인 허용 목록에 추가 
+- [**Domain allowlist**](https://platform.openai.com/settings/organization/security/domain-allowlist) (Settings > Security > Domain allowlist)
 
-### Frontend (Node.js)
-- Install Node.js
-    ```sh
-    curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-    sudo apt install -y nodejs
-    ```
+## 코드스페이스에서 실행
 
-- Install dependencies
-    ```sh
-    # rm package-lock.json
-    # rm -rf node_modules
-    npm install
-    ```
-
-- Build
-    ```sh
-    npm run build
-    ```
-
-### Backend (Python)
-- Install uv
-    ```sh
-    curl -LsSf https://astral.sh/uv/install.sh | sh
-    ```
-
-- Install dependencies
-    ```sh
-    # rm uv.lock
-    # rm -rf .venv
-    uv sync
-    ```
-
-- Run server
-    ```sh
-    uv run main.py
-    ```
+```sh
+npm run build && uv run main.py
+```
 
 ## References
 - OpenAI Docs

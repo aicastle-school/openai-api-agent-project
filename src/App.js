@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { ChatKit, useChatKit } from "@openai/chatkit-react";
+import "./App.css";
 
 function App() {
   const [error, setError] = useState(null);
@@ -59,7 +60,16 @@ function App() {
   });
 
   return (
-    <ChatKit control={control} style={{ height: "100vh", width: "100vw" }} />
+    <div className="app-container">
+      <div className="chatkit-container">
+        <ChatKit control={control} className="chatkit" />
+      </div>
+      <div className="copyright">
+        <strong><a href="https://openai-agent.aicastle.school" target="_blank" rel="noopener noreferrer">OpenAI Agent School</a></strong>
+        {' | Copyright © '}
+        <a href="https://aicastle.com" target="_blank" rel="noopener noreferrer">AICASTLE</a>
+      </div>
+    </div>
   );
 }
 

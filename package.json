@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@openai/chatkit-react": "*",
-    "react": "*",
-    "react-dom": "*",
-    "react-scripts": "*"
+    "@openai/chatkit-react": "^1.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-scripts": "^5.0.0"
   },
   "scripts": {
     "start": "react-scripts start",

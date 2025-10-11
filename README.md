@@ -2,13 +2,13 @@
 
 ## [1] Render에서 배포
 
-### 새 프로젝트 생성
+### 1.1. 새 프로젝트 생성
 - [**Render**](https://render.com/) 접속 후 새 Web Service 생성
 - Github Repository 선택
     - (옵션1) 내 레포지토리 선택: Git Provider > Connect
     - (옵션2) 공개 레포지토리 선택: `https://github.com/aicastle-school/openai-api-agent-project`
 
-### 1.1. Config 설정
+#### Config 설정
 
 - Language: `Python 3`
 - Branch: `multi-agent`
@@ -28,13 +28,14 @@
 - Secret Files (선택 사항)
     - `config.yaml`
 
-### Domain allowlist 설정
-- render에서 URL 복사 후 **OpenAI Platform**에서 도메인 허용 목록에 추가 
-- [**Domain allowlist**](https://platform.openai.com/settings/organization/security/domain-allowlist) (Settings > Security > Domain allowlist)
+### 1.2. Domain allowlist 설정
+- render에서 프로젝트 배포 URL 복사 (예: `openai-agent-project.onrender.com`) 
+- OpenAI Platform에서 도메인 허용 목록에 추가 
+    - [**Domain allowlist**](https://platform.openai.com/settings/organization/security/domain-allowlist) (Settings > Security > Domain allowlist)
 
-## 코드스페이스에서 실행
+## [2] 코드스페이스에서 실행
 
-### Frontend
+### 2.1. Frontend
 - update
     ```sh
     npm update
@@ -44,7 +45,7 @@
     npm run build
     ```
 
-### Backend
+### 2.2. Backend
 - run
     ```sh
     uv run main.py

@@ -1,13 +1,19 @@
 # chatkit
 
-## Render에서 배포
+## [1] Render에서 배포
 
-### Config 설정
+### 새 프로젝트 생성
+- [**Render**](https://render.com/) 접속 후 새 Web Service 생성
+- Github Repository 선택
+    - (옵션1) 내 레포지토리 선택: Git Provider > Connect
+    - (옵션2) 공개 레포지토리 선택: `https://github.com/aicastle-school/openai-api-agent-project`
+
+### 1.1. Config 설정
 
 - Language: `Python 3`
 - Branch: `multi-agent`
 - Region: `Singapore`
-- Build Command
+- Build Command: 
     ```sh
     uv sync
     ```
@@ -19,6 +25,8 @@
 - Environment Variables
     - `OPENAI_API_KEY`: OpenAI API Key
     - `WORKFLOW_ID`: Workflow ID (Agent Builder에서 생성된 ID)
+- Secret Files (선택 사항)
+    - `config.yaml`
 
 ### Domain allowlist 설정
 - render에서 URL 복사 후 **OpenAI Platform**에서 도메인 허용 목록에 추가 
@@ -31,7 +39,6 @@
     ```sh
     npm update
     ```
-
 - build
     ```sh
     npm run build
